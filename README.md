@@ -60,7 +60,7 @@ A modern phonebook application built with Next.js, Prisma, and Redux Toolkit. Th
    ```
 
 6. **Open your browser**
-   Navigate to [http://localhost:3001](http://localhost:3001)
+   Navigate to [http://localhost:3000](http://localhost:3000)
 
 ## API Endpoints
 
@@ -82,7 +82,7 @@ A modern phonebook application built with Next.js, Prisma, and Redux Toolkit. Th
 ### Example Request
 
 ```bash
-GET http://localhost:3001/api/phonebooks?page=1&limit=10&keyword=john&sort=asc
+GET http://localhost:3000/api/phonebooks?page=1&limit=10&keyword=john&sort=asc
 ```
 
 ### Example Response

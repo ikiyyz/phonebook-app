@@ -4,93 +4,142 @@ import { useEffect, useState, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { getPhonebooks } from '@/redux/phonebookSlice';
 import PhonebookItem from './PhonebookItem.jsx';
-import { ArrowUpAZ, ArrowDownAZ, PlusCircle } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { ArrowUpDown, UserPlus, PlusCircle } from 'lucide-react';
 
 export default function PhonebookList() {
-    const router = useRouter();
     const dispatch = useDispatch();
-    const { items = [], loading, error, page = 1, pages = 1, search: keyword, sortAsc } = useSelector((state) => state.phonebook);
-    const [search, setSearch] = useState(keyword || '');
+    const { items, error, pagination } = useSelector(state => state.phonebook);
+
+    const [keyword, setKeyword] = useState('');
+    const [sortAsc, setSortAsc] = useState(true);
+    const [loadingSort, setLoadingSort] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
+
     const loadMoreRef = useRef(null);
+    const keywordRef = useRef(keyword);
+
+    useEffect(() => {
+        keywordRef.current = keyword;
+    }, [keyword]);
 
     // Debounced search
-    const searchRef = useRef(search);
-    useEffect(() => { searchRef.current = search; }, [search]);
     useEffect(() => {
         const handler = setTimeout(() => {
-            if (searchRef.current === search) {
-                dispatch(getPhonebooks({ page: 1, search, sortAsc: !sortAsc }));
+            if (keywordRef.current === keyword) {
+                setLoadingSort(true);
+                dispatch(getPhonebooks({
+                    keyword,
+                    sortAsc,
+                    append: false,
+                    page: 1,
+                    limit: pagination.limit
+                })).finally(() => setLoadingSort(false)); // Matikan loading setelah selesai
             }
-        }, 400);
+        }, 400); // Debounce 400ms
         return () => clearTimeout(handler);
-    }, [dispatch, search, sortAsc]);
+    }, [keyword, sortAsc, dispatch, pagination.limit]);
 
-    // Intersection Observer for infinite scroll
+    // Infinite scroll
     useEffect(() => {
-        if (loading || loadingMore) return;
-        if (page >= pages) return;
+        if (!loadMoreRef.current || loadingSort || loadingMore || !pagination.hasMore) return;
+
         const observer = new window.IntersectionObserver(
-            (entries) => {
-                if (entries[0].isIntersecting && !loading && !loadingMore && page < pages) {
+            entries => {
+                if (entries[0].isIntersecting) {
                     setLoadingMore(true);
-                    dispatch(getPhonebooks({ 
-                        page: page + 1, 
-                        search, 
-                        sortAsc: !sortAsc, 
-                        append: true 
-                    }))
-                    .finally(() => setLoadingMore(false));
+                    dispatch(getPhonebooks({
+                        keyword,
+                        sortAsc,
+                        append: true,
+                        page: pagination.page + 1,
+                        limit: pagination.limit
+                    })).finally(() => setLoadingMore(false));
                 }
             },
-            { root: null, rootMargin: "0px", threshold: 1.0 }
+            { rootMargin: '200px' } // Pre-load lebih awal untuk kelancaran
         );
-        if (loadMoreRef.current) {
-            observer.observe(loadMoreRef.current);
-        }
+
+        observer.observe(loadMoreRef.current);
         return () => {
             if (loadMoreRef.current) observer.unobserve(loadMoreRef.current);
         };
-    }, [dispatch, page, pages, loading, loadingMore, search, sortAsc]);
+    }, [loadMoreRef, loadingSort, loadingMore, dispatch, keyword, sortAsc, pagination]);
 
-    if (loading && page === 1) return <p>Loading...</p>;
-    if (error) return <p className="text-red-600">Error: {error}</p>;
+    if (loadingSort && pagination.page === 1) {
+        return (
+            <div className="flex justify-center items-center min-h-64">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+            </div>
+        );
+    }
+
+    if (error) return <p className="text-red-600 text-center py-8">{error}</p>;
 
     return (
-        <div>
-            <div className="flex justify-between items-center mb-6">
+        <div className="w-full max-w-7xl mx-auto px-3 sm:px-4">
+            {/* Toolbar */}
+            <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-sm border-b py-3 mb-4 flex gap-3">
                 <button
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                    onClick={() => dispatch(getPhonebooks({ page: 1, search, sortAsc: !sortAsc }))}
+                    onClick={() => setSortAsc(prev => !prev)}
+                    className="flex items-center justify-center p-2 bg-black text-white rounded-lg hover:bg-gray-800 transition"
                 >
-                    {sortAsc ? <ArrowUpAZ /> : <ArrowDownAZ />}
+                    <ArrowUpDown
+                        className={`transition-transform duration-300 ${sortAsc ? 'rotate-0' : 'rotate-180'}`}
+                    />
                 </button>
+
                 <input
                     type="search"
-                    placeholder="Search by name..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full px-4 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={keyword}
+                    onChange={e => setKeyword(e.target.value)}
+                    placeholder="Cari kontak..."
+                    className="flex-1 border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
                 />
-                <button
-                    onClick={() => router.push('/add')}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
+
+                <a
+                    href="/add"
+                    className="p-2 bg-black text-white rounded-lg hover:bg-gray-800 transition"
                 >
-                    <PlusCircle className="w-5 h-5" />
-                    Add Contact
-                </button>
+                    <UserPlus />
+                </a>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mt-4">
-                {items.map((contact) => (
-                    <PhonebookItem key={contact.id} contact={contact} />
-                ))}
-            </div>
-            <div ref={loadMoreRef} style={{ height: 1 }} />
-            {loadingMore && (
-                <div className="flex justify-center my-4">
-                    <span className="px-4 py-2 bg-gray-200 rounded">Loading more...</span>
+
+            {/* List */}
+            {items.length === 0 ? (
+                <div className="text-center py-8">
+                    <p className="text-gray-500 mb-3">
+                        {keyword.trim()
+                            ? `Tidak ada kontak dengan "${keyword.trim()}"`
+                            : 'Belum ada kontak'}
+                    </p>
+                    <a
+                        href="/add"
+                        className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800"
+                    >
+                        <PlusCircle className="mr-2" />
+                        Tambah Kontak {keyword.trim() ? '' : 'Pertama'}
+                    </a>
                 </div>
+            ) : (
+                <>
+                    {loadingSort && (
+                        <div className="flex justify-center py-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-black"></div>
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 overflow-hidden">
+                        {items.map(pb => <PhonebookItem key={pb.id} phonebook={pb} />)}
+                    </div>
+
+                    <div ref={loadMoreRef} style={{ height: 1, visibility: 'hidden' }} />
+
+                    {loadingMore && (
+                        <div className="flex justify-center py-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-black"></div>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );

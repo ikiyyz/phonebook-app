@@ -1,175 +1,121 @@
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { read, create, update, remove } from '@/api/phonebookApi';
 
-const initialState = {
-    items: [],
-    loading: false,
-    error: null,
-    page: 1,
-    pages: 1,
-    search: '',
-    sortAsc: true,
-    currentPhonebook: null,
-    status: 'idle',
-    pagination: {
-        page: 1,
-        limit: 10,
-        pages: 0,
-        total: 0
-    }
-}
-
-// Async thunks
 export const getPhonebooks = createAsyncThunk(
     'phonebook/getPhonebooks',
-    async ({ page = 1, search = '', sortAsc = true, append = false }) => {
-        const sort = sortAsc ? 'asc' : 'desc';
-        const response = await read({
-            page,
-            limit: 10,
-            keyword: search,
-            sortBy: 'name',
-            sortMode: sort
-        });
-        return { data: response.data, append };
+    async ({ keyword = '', sortAsc = true, append = false, page = 1, limit = 20 } = {}, { rejectWithValue, getState }) => {
+        try {
+            const state = getState();
+            const currentPage = append ? state.phonebook.pagination.page + 1 : page;
+
+            const params = {
+                keyword: keyword.trim(),
+                sortBy: 'name',
+                sortMode: sortAsc ? 'asc' : 'desc',
+                page: currentPage,
+                limit
+            };
+
+            const response = await read(params);
+            const data = response?.data?.data || [];
+            const pagination = response?.data?.pagination || {
+                page: currentPage,
+                limit,
+                total: data.length,
+                pages: 1
+            };
+
+            return { data, append, pagination };
+        } catch (err) {
+            return rejectWithValue(err?.response?.data?.message || err.message || 'Failed to fetch contacts');
+        }
     }
 );
 
-export const fetchPhonebookByIdAsync = createAsyncThunk(
-    'phonebook/fetchPhonebookById',
-    async (id) => {
-        const response = await read({ id });
+// Tambah kontak baru
+export const createPhonebook = createAsyncThunk('phonebook/createPhonebook', async (data, { rejectWithValue }) => {
+    try {
+        const response = await create(data);
         return response.data;
+    } catch (err) {
+        return rejectWithValue(err?.response?.data?.message || err.message);
     }
-);
+});
 
-export const createPhonebookAsync = createAsyncThunk(
-    'phonebook/createPhonebook',
-    async (phonebookData) => {
-        const response = await create(phonebookData);
+// Update kontak / partial update (bisa nama, phone, avatar, dll)
+export const updatePhonebook = createAsyncThunk('phonebook/updatePhonebook', async ({ id, ...data }, { rejectWithValue }) => {
+    try {
+        const response = await update(id, data);
         return response.data;
+    } catch (err) {
+        return rejectWithValue(err?.response?.data?.message || err.message);
     }
-);
+});
 
-export const updatePhonebookAsync = createAsyncThunk(
-    'phonebook/updatePhonebook',
-    async ({ id, ...phonebookData }) => {
-        const response = await update(id, phonebookData);
-        return response.data;
-    }
-);
-
-export const deletePhonebookAsync = createAsyncThunk(
-    'phonebook/deletePhonebook',
-    async (id) => {
+export const deletePhonebook = createAsyncThunk('phonebook/deletePhonebook', async (id, { rejectWithValue }) => {
+    try {
         await remove(id);
         return id;
+    } catch (err) {
+        return rejectWithValue(err?.response?.data?.message || err.message);
     }
-);
+});
 
 const phonebookSlice = createSlice({
     name: 'phonebook',
-    initialState,
-    reducers: {
-        clearError: (state) => {
-            state.error = null
-        },
-        clearCurrentPhonebook: (state) => {
-            state.currentPhonebook = null
-        }
+    initialState: {
+        items: [],
+        loading: false,
+        error: null,
+        pagination: { page: 1, limit: 20, total: 0, pages: 1, hasMore: false }
     },
+    reducers: {},
     extraReducers: (builder) => {
         builder
+            // ===== Get Phonebooks =====
             .addCase(getPhonebooks.pending, (state) => {
                 state.loading = true;
+                state.error = null;
             })
             .addCase(getPhonebooks.fulfilled, (state, action) => {
                 state.loading = false;
-                if (action.payload.append) {
-                    state.items = [...state.items, ...action.payload.data.phonebooks];
-                } else {
-                    state.items = action.payload.data.phonebooks;
-                }
-                state.page = action.payload.data.page;
-                state.pages = action.payload.data.pages;
+                const { data = [], append, pagination } = action.payload;
+
+                state.items = append
+                    ? [...state.items, ...data.filter(item => !state.items.some(i => i.id === item.id))]
+                    : data;
+
+                state.pagination = {
+                    ...pagination,
+                    hasMore: pagination.page < pagination.pages
+                };
             })
             .addCase(getPhonebooks.rejected, (state, action) => {
                 state.loading = false;
-                state.error = action.error.message;
+                state.error = action.payload;
             })
-            // Fetch single phonebook
-            .addCase(fetchPhonebookByIdAsync.pending, (state) => {
-                state.status = 'loading'
-                state.error = null
+
+            // ===== Create Phonebook =====
+            .addCase(createPhonebook.fulfilled, (state, action) => {
+                state.items.unshift(action.payload);
             })
-            .addCase(fetchPhonebookByIdAsync.fulfilled, (state, action) => {
-                state.status = 'idle'
-                state.currentPhonebook = action.payload
-            })
-            .addCase(fetchPhonebookByIdAsync.rejected, (state, action) => {
-                state.status = 'failed'
-                state.error = action.error.message
-            })
-            // Create phonebook
-            .addCase(createPhonebookAsync.pending, (state) => {
-                state.status = 'loading'
-                state.error = null
-            })
-            .addCase(createPhonebookAsync.fulfilled, (state, action) => {
-                state.status = 'idle'
-                state.phonebooks.unshift(action.payload)
-                state.pagination.total += 1
-            })
-            .addCase(createPhonebookAsync.rejected, (state, action) => {
-                state.status = 'failed'
-                state.error = action.error.message
-            })
-            // Update phonebook
-            .addCase(updatePhonebookAsync.pending, (state) => {
-                state.status = 'loading'
-                state.error = null
-            })
-            .addCase(updatePhonebookAsync.fulfilled, (state, action) => {
-                state.status = 'idle'
-                const index = state.phonebooks.findIndex(p => p.id === action.payload.id)
-                if (index !== -1) {
-                    state.phonebooks[index] = action.payload
+
+            // Update Phonebook (termasuk update avatar)
+            .addCase(updatePhonebook.fulfilled, (state, action) => {
+                const idx = state.items.findIndex(i => i.id === action.payload.id);
+                if (idx !== -1) {
+                  state.items[idx] = {
+                    ...state.items[idx],
+                    ...action.payload,
+                    avatar: action.payload.avatar ?? state.items[idx].avatar
+                  };
                 }
-                if (state.currentPhonebook && state.currentPhonebook.id === action.payload.id) {
-                    state.currentPhonebook = action.payload
-                }
-            })
-            .addCase(updatePhonebookAsync.rejected, (state, action) => {
-                state.status = 'failed'
-                state.error = action.error.message
-            })
-            // Delete phonebook
-            .addCase(deletePhonebookAsync.pending, (state) => {
-                state.status = 'loading'
-                state.error = null
-            })
-            .addCase(deletePhonebookAsync.fulfilled, (state, action) => {
-                state.status = 'idle'
-                state.phonebooks = state.phonebooks.filter(p => p.id !== action.payload)
-                state.pagination.total -= 1
-                if (state.currentPhonebook && state.currentPhonebook.id === action.payload) {
-                    state.currentPhonebook = null
-                }
-            })
-            .addCase(deletePhonebookAsync.rejected, (state, action) => {
-                state.status = 'failed'
-                state.error = action.error.message
-            })
+              })
+            // ===== Delete Phonebook =====
+            .addCase(deletePhonebook.fulfilled, (state, action) => {
+                state.items = state.items.filter(i => i.id !== action.payload);
+            });
     }
-})
+});
 
-export const { clearError, clearCurrentPhonebook } = phonebookSlice.actions
-
-// Selectors
-export const selectPhonebooks = (state) => state.phonebook.phonebooks
-export const selectCurrentPhonebook = (state) => state.phonebook.currentPhonebook
-export const selectPhonebookStatus = (state) => state.phonebook.status
-export const selectPhonebookError = (state) => state.phonebook.error
-export const selectPhonebookPagination = (state) => state.phonebook.pagination
-
-export default phonebookSlice.reducer 
+export default phonebookSlice.reducer;

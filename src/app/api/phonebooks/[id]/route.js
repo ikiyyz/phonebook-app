@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
-// Fungsi untuk menangani error
 function handleError(error) {
   console.error('Error:', error);
   return NextResponse.json(
@@ -14,11 +13,10 @@ function handleError(error) {
   );
 }
 
-// PUT /api/phonebooks/[id] - Update kontak
-export async function PUT(request, { params }) {
+export async function GET(request, { params }) {
   try {
-    const { id } = params;
-    
+    const { id } = await params;
+
     // Validasi ID
     if (!id || isNaN(Number(id))) {
       return NextResponse.json(
@@ -27,10 +25,36 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // Ambil data dari request
-    const body = await request.json();
+    const contact = await prisma.phonebook.findUnique({
+      where: { id: Number(id) }
+    });
+
+    if (!contact) {
+      return NextResponse.json(
+        { success: false, message: 'Kontak tidak ditemukan' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ success: true, data: contact }, { status: 200 });
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+export async function PUT(request, { params }) {
+  try {
+    const { id } = await params;
     
-    // Validasi data yang dikirim
+    if (!id || isNaN(Number(id))) {
+      return NextResponse.json(
+        { success: false, message: 'ID kontak tidak valid' },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+
     if (!body || Object.keys(body).length === 0) {
       return NextResponse.json(
         { success: false, message: 'Data tidak boleh kosong' },
@@ -38,7 +62,6 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // Cek apakah kontak ada
     const existingContact = await prisma.phonebook.findUnique({
       where: { id: Number(id) }
     });
@@ -50,7 +73,6 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // Update kontak
     const updatedContact = await prisma.phonebook.update({
       where: { id: Number(id) },
       data: body,
@@ -70,12 +92,10 @@ export async function PUT(request, { params }) {
   }
 }
 
-// DELETE /api/phonebooks/[id] - Hapus kontak
 export async function DELETE(request, { params }) {
   try {
-    const { id } = params;
-    
-    // Validasi ID
+    const { id } = await params;
+
     if (!id || isNaN(Number(id))) {
       return NextResponse.json(
         { success: false, message: 'ID kontak tidak valid' },
@@ -83,7 +103,6 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // Cek apakah kontak ada
     const existingContact = await prisma.phonebook.findUnique({
       where: { id: Number(id) }
     });
@@ -94,8 +113,7 @@ export async function DELETE(request, { params }) {
         { status: 404 }
       );
     }
-
-    // Hapus kontak
+    
     await prisma.phonebook.delete({
       where: { id: Number(id) }
     });

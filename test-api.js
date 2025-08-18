@@ -1,4 +1,3 @@
-// Test script untuk menguji API endpoints phonebook
 import axios from 'axios'
 
 const BASE_URL = 'http://localhost:3001/api'

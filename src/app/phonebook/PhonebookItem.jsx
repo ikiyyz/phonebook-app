@@ -2,120 +2,128 @@
 
 import { useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { updatePhonebookAsync, deletePhonebookAsync } from '@/redux/phonebookSlice';
-import Avatar from './Avatar.jsx';
+import { updatePhonebook, deletePhonebook } from '@/redux/phonebookSlice';
+import { Pencil, Trash2, Save, X, Loader2, Camera } from 'lucide-react';
 import ConfirmDelete from './ConfirmDelete.jsx';
-import { Pencil, Trash2, Save, XCircle, Hourglass } from 'lucide-react';
+import Avatar from './Avatar.jsx';
+import { toast } from 'react-hot-toast';
 
-export default function PhonebookItem({ contact }) {
+export default function PhonebookItem({ phonebook }) {
     const dispatch = useDispatch();
-    const [isEdit, setIsEdit] = useState(false);
-    const [editedContact, setEditedContact] = useState({
-        name: contact.name,
-        phone: contact.phone,
-        email: contact.email,
-        avatar: contact.avatar
-    });
-    const [deleting, setDeleting] = useState(false);
-    const [showConfirm, setShowConfirm] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [name, setName] = useState(phonebook.name);
+    const [phone, setPhone] = useState(phonebook.phone);
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-    const save = async () => {
+    // Handlers
+    const handleEdit = () => { setName(phonebook.name); setPhone(phonebook.phone); setIsEditing(true); };
+    const handleCancel = () => { setName(phonebook.name); setPhone(phonebook.phone); setIsEditing(false); };
+
+    const handleSave = async () => {
+        if (!name.trim() || !phone.trim()) return toast.error('Name and phone are required');
+        if (name === phonebook.name && phone === phonebook.phone) return setIsEditing(false);
+
+        setIsUpdating(true);
         try {
-            await dispatch(updatePhonebookAsync({ id: contact.id, ...editedContact })).unwrap();
-            setIsEdit(false);
-        } catch (error) {
-            console.error('Failed to update contact:', error);
-        }
+            await dispatch(updatePhonebook({ id: phonebook.id, name, phone })).unwrap();
+            toast.success('Contact updated successfully');
+            setIsEditing(false);
+        } catch {
+            toast.error('Failed to update contact');
+        } finally { setIsUpdating(false); }
     };
 
-    if (isEdit) {
+    const handleDelete = async () => {
+        setShowDeleteConfirm(false);
+        setIsDeleting(true);
+        try {
+            await dispatch(deletePhonebook(phonebook.id)).unwrap();
+            toast.success('Contact deleted');
+        } catch {
+            toast.error('Failed to delete contact');
+        } finally { setIsDeleting(false); }
+    };
+
+    const cardClass = `bg-white rounded-xl p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200 h-56 flex flex-col ${isDeleting ? 'opacity-50' : ''}`;
+
+    // Edit Mode
+    if (isEditing) {
         return (
-            <div className="shadow-inner bg-white rounded-2xl p-4 flex items-center gap-5 border border-gray-200">
-                <div>
-                    <Avatar src={editedContact.avatar || '/avatar.png'} size={48} />
+            <div className={cardClass}>
+                <div className="flex justify-center mb-3">
+                    <Avatar src={phonebook.avatar} size={60} />
                 </div>
-                <div className="flex flex-col w-full gap-1">
+
+                <div className="flex-1 space-y-2">
                     <input
                         type="text"
-                        value={editedContact.name}
-                        onChange={(e) => setEditedContact({ ...editedContact, name: e.target.value })}
-                        className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-400 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 text-base"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        disabled={isUpdating}
+                        className="w-full px-3 py-2 text-sm text-center border rounded-md"
                         placeholder="Name"
                     />
                     <input
-                        type="text"
-                        value={editedContact.phone}
-                        onChange={(e) => setEditedContact({ ...editedContact, phone: e.target.value })}
-                        className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-400 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 text-base"
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        disabled={isUpdating}
+                        className="w-full px-3 py-2 text-sm text-center border rounded-md"
                         placeholder="Phone"
                     />
-                    <input
-                        type="email"
-                        value={editedContact.email}
-                        onChange={(e) => setEditedContact({ ...editedContact, email: e.target.value })}
-                        className="w-full px-4 py-2 bg-white text-gray-900 border border-gray-400 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 text-base"
-                        placeholder="Email"
-                    />
-                    <div className="flex gap-3 mt-3">
-                        <button
-                            type="button"
-                            onClick={() => setIsEdit(false)}
-                            className="hover:cursor-pointer text-red-600 hover:text-red-700 transition"
-                        >
-                            <XCircle />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={save}
-                            className="hover:cursor-pointer text-blue-600 hover:text-blue-700 transition"
-                        >
-                            <Save />
-                        </button>
-                    </div>
+                </div>
+
+                <div className="flex justify-center space-x-3 mt-3">
+                    <button onClick={handleCancel} disabled={isUpdating}><X size={16} /></button>
+                    <button onClick={handleSave} disabled={isUpdating}>
+                        {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                    </button>
                 </div>
             </div>
         );
     }
 
+    // Default Mode
     return (
-        <div className="shadow-inner bg-white rounded-2xl p-4 flex items-center gap-5 border border-gray-200">
-            <div>
-                <Avatar src={contact.avatar || '/avatar.png'} size={48} />
-            </div>
-            <div className="flex flex-col w-full gap-1">
-                <div className="font-semibold text-xl text-gray-900">{contact.name}</div>
-                <div className="text-gray-700 text-base">{contact.phone}</div>
-                <div className="text-gray-600 text-sm">{contact.email}</div>
-                <div className="flex gap-3 mt-3">
-                    <button
-                        type="button"
-                        onClick={() => setIsEdit(true)}
-                        className="hover:cursor-pointer text-yellow-600 hover:text-yellow-700 transition"
-                    >
-                        <Pencil />
+        <>
+            <div className={cardClass}>
+                {/* Avatar dengan hover overlay untuk edit */}
+                <div className="relative flex justify-center mb-3">
+                    <a href={`/edit-avatar?id=${phonebook.id}`} className="group relative">
+                        <Avatar
+                            src={phonebook.avatar}
+                            size={64}
+                            alt={`${phonebook.name}'s avatar`}
+                            className="transition-all"
+                        />
+                        <div className="absolute inset-0 bg-black/25 rounded-full opacity-0 group-hover:opacity-100 flex justify-center items-center cursor-pointer transition">
+                            <Camera className="text-white" />
+                        </div>
+                    </a>
+                </div>
+
+                <div className="flex-1 text-center space-y-1">
+                    <h3 className="font-semibold text-gray-900 text-sm truncate">{phonebook.name}</h3>
+                    <p className="text-xs text-gray-600 truncate">{phonebook.phone}</p>
+                    {phonebook.email && <p className="text-xs text-gray-500 truncate">{phonebook.email}</p>}
+                </div>
+
+                <div className="flex justify-center space-x-3 mt-3">
+                    <button onClick={handleEdit} disabled={isDeleting}><Pencil size={16} /></button>
+                    <button onClick={() => setShowDeleteConfirm(true)} disabled={isDeleting}>
+                        {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                     </button>
-                    <button
-                        type="button"
-                        disabled={deleting}
-                        onClick={() => setShowConfirm(true)}
-                        className={`hover:cursor-pointer text-red-600 hover:text-red-700 transition ${
-                            deleting ? "opacity-50 cursor-not-allowed" : ""
-                        }`}
-                    >
-                        {deleting ? <Hourglass /> : <Trash2 />}
-                    </button>
-                    <ConfirmDelete
-                        open={showConfirm}
-                        onClose={() => setShowConfirm(false)}
-                        onConfirm={async () => {
-                            setShowConfirm(false);
-                            setDeleting(true);
-                            await dispatch(deletePhonebookAsync(contact.id)).unwrap();
-                            setDeleting(false);
-                        }}
-                    />
                 </div>
             </div>
-        </div>
+
+            <ConfirmDelete
+                open={showDeleteConfirm}
+                onClose={() => setShowDeleteConfirm(false)}
+                onConfirm={handleDelete}
+                contactName={phonebook.name}
+            />
+        </>
     );
 }
