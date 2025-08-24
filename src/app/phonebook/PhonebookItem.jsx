@@ -2,16 +2,14 @@
 
 import { useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { updatePhonebook, deletePhonebook } from '@/redux/phonebookSlice';
+import { updatePhonebookAsync, deletePhonebookAsync } from '@/redux/phonebookSlice';
 import { Pencil, Trash2, Save, X, Loader2, Camera } from 'lucide-react';
 import ConfirmDelete from './ConfirmDelete.jsx';
 import Avatar from './Avatar.jsx';
 import { toast } from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
 
 export default function PhonebookItem({ phonebook }) {
     const dispatch = useDispatch();
-    const router = useRouter();
 
     const [isEditing, setIsEditing] = useState(false);
     const [name, setName] = useState(phonebook.name);
@@ -40,7 +38,7 @@ export default function PhonebookItem({ phonebook }) {
 
         setIsUpdating(true);
         try {
-            await dispatch(updatePhonebook({ id: phonebook.id, name, phone })).unwrap();
+            await dispatch(updatePhonebookAsync({ id: phonebook.id, name, phone })).unwrap();
             toast.success('Contact updated successfully');
             setIsEditing(false);
         } catch (error) {
@@ -54,7 +52,7 @@ export default function PhonebookItem({ phonebook }) {
         setShowDeleteConfirm(false);
         setIsDeleting(true);
         try {
-            await dispatch(deletePhonebook(phonebook.id)).unwrap();
+            await dispatch(deletePhonebookAsync(phonebook.id)).unwrap();
             toast.success('Contact deleted');
         } catch {
             toast.error('Failed to delete contact (rolled back)');
@@ -65,7 +63,6 @@ export default function PhonebookItem({ phonebook }) {
 
     const cardClass = `bg-white rounded-xl p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200 h-56 flex flex-col ${isDeleting ? 'opacity-50' : ''}`;
 
-    // Edit Mode
     if (isEditing) {
         return (
             <div className={cardClass}>
@@ -111,12 +108,11 @@ export default function PhonebookItem({ phonebook }) {
     return (
         <>
             <div className={cardClass}>
-                {/* Avatar dengan hover overlay untuk edit */}
+                {/* avatar overlay*/}
                 <div className="relative flex justify-center mb-3 group">
-                    <button
-                        type="button"
-                        onClick={() => router.push(`/edit-avatar?id=${phonebook.id}`)}
-                        className="relative"
+                    <a
+                        href={`/edit-avatar?id=${phonebook.id}`}
+                        className="relative block"
                     >
                         <Avatar
                             src={phonebook.avatar}
@@ -126,8 +122,9 @@ export default function PhonebookItem({ phonebook }) {
                         <div className="absolute inset-0 rounded-full bg-black/30 opacity-0 group-hover:opacity-100 flex justify-center items-center transition">
                             <Camera className="text-white" size={20} />
                         </div>
-                    </button>
+                    </a>
                 </div>
+
 
                 <div className="flex-1 text-center space-y-1">
                     <h3 className="text-sm font-medium line-clamp-1">

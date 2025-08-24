@@ -2,13 +2,13 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { getPhonebooks } from "@/redux/phonebookSlice";
+import { getPhonebooksAsync } from "@/redux/phonebookSlice";
 import PhonebookItem from "./PhonebookItem.jsx";
 import { ArrowUpDown, UserPlus, PlusCircle } from "lucide-react";
 
 export default function PhonebookList() {
     const dispatch = useDispatch();
-    const { items, error, pagination } = useSelector((state) => state.phonebook);
+    const { items = [], error, page, pages, status } = useSelector((state) => state.phonebook);
 
     const [keyword, setKeyword] = useState("");
     const [sortAsc, setSortAsc] = useState(true);
@@ -17,75 +17,68 @@ export default function PhonebookList() {
     const loadMoreRef = useRef(null);
 
     useEffect(() => {
-        if (items.length === 0) {
-            dispatch(
-                getPhonebooks({
-                    keyword: "",
-                    sortAsc: true,
-                    append: false,
-                    page: 1,
-                    limit: pagination.limit,
-                })
-            );
+        if (!items || items.length === 0) {
+            dispatch(getPhonebooksAsync({
+                page: 1,
+                keyword: "",
+                sortAsc,
+                append: false,
+            }));
         }
-    }, [items.length, pagination.limit, dispatch]);
+    }, [items?.length, sortAsc, dispatch]);
 
+    //search, sort
     useEffect(() => {
         const handler = setTimeout(() => {
-            dispatch(
-                getPhonebooks({
+            dispatch(getPhonebooksAsync({
+                page: 1,
+                keyword,
+                sortAsc,
+                append: false,
+            }));
+        }, 400);
+        return () => clearTimeout(handler);
+    }, [keyword, sortAsc, dispatch]);
+
+    //scroll
+    useEffect(() => {
+        if (!loadMoreRef.current || loadingMore) return;
+        if (!page || !pages || page >= pages) return;
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                setLoadingMore(true);
+                dispatch(getPhonebooksAsync({
+                    page: page + 1,
                     keyword,
                     sortAsc,
-                    append: false,
-                    page: 1,
-                    limit: pagination.limit,
-                })
-            );
-        }, 400);
-
-        return () => clearTimeout(handler);
-    }, [keyword, sortAsc, pagination.limit, dispatch]);
-
-    useEffect(() => {
-        if (!loadMoreRef.current || !pagination.hasMore || loadingMore) return;
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries[0].isIntersecting) {
-                    setLoadingMore(true);
-                    dispatch(
-                        getPhonebooks({
-                            keyword,
-                            sortAsc,
-                            append: true,
-                            page: pagination.page + 1,
-                            limit: pagination.limit,
-                        })
-                    ).finally(() => setLoadingMore(false));
-                }
-            },
-            { rootMargin: "200px" }
-        );
+                    append: true,
+                })).finally(() => setLoadingMore(false));
+            }
+        }, { rootMargin: "200px" });
 
         observer.observe(loadMoreRef.current);
-        return () => observer.disconnect();
-    }, [pagination, keyword, sortAsc, loadingMore, dispatch]);
+        return () => {
+            if (loadMoreRef.current) observer.unobserve(loadMoreRef.current);
+            observer.disconnect();
+        };
+    }, [page, pages, keyword, sortAsc, loadingMore, dispatch]);
 
     // 🔹 Error state
-    if (error)
+    if (error) {
         return <p className="text-red-600 text-center py-8">{error}</p>;
+    }
 
     return (
         <div className="w-full max-w-7xl mx-auto px-3 sm:px-4">
             {/* Toolbar */}
             <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-sm border-b py-3 mb-4 flex gap-3">
                 <button
-                    onClick={() => setSortAsc((prev) => !prev)}
+                    onClick={() => setSortAsc(prev => !prev)}
                     className="flex items-center justify-center p-2 bg-black text-white rounded-lg hover:bg-gray-800 transition"
                 >
                     <ArrowUpDown
-                        className={`transition-transform duration-300 ${sortAsc ? "rotate-0" : "rotate-180"
-                            }`}
+                        className={`transition-transform duration-300 ${sortAsc ? "rotate-0" : "rotate-180"}`}
                     />
                 </button>
 
@@ -106,7 +99,9 @@ export default function PhonebookList() {
             </div>
 
             {/* List */}
-            {items.length === 0 ? (
+            {status === "loading" && items.length === 0 ? (
+                <p className="text-center py-6 text-gray-500">Loading...</p>
+            ) : items.length === 0 ? (
                 <div className="text-center py-8">
                     <p className="text-gray-500 mb-3">
                         {keyword.trim()

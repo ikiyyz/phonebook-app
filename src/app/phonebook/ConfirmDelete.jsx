@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useDispatch } from 'react-redux';
-import { deletePhonebook } from '@/redux/phonebookSlice';
+import { deletePhonebookAsync } from '@/redux/phonebookSlice';
 import { toast } from 'react-hot-toast';
 
 export default function ConfirmDelete({
@@ -26,11 +26,12 @@ export default function ConfirmDelete({
                     toast.error('ID kontak tidak valid');
                     return;
                 }
-                await dispatch(deletePhonebook(contactId)).unwrap();
+                await dispatch(deletePhonebookAsync(contactId)).unwrap();
             }
             toast.success('Kontak berhasil dihapus!');
             onClose();
         } catch (error) {
+            console.error('Delete failed:', error);
             toast.error('Gagal menghapus kontak');
         }
     };
@@ -43,7 +44,8 @@ export default function ConfirmDelete({
                         {title}
                     </h3>
                     <p className="text-gray-600 mb-6">
-                        Anda yakin ingin menghapus {contactName}? Tindakan ini akan menghapus data secara permanen.
+                        Anda yakin ingin menghapus <b>{contactName}</b>? <br />
+                        Tindakan ini akan menghapus data secara permanen.
                     </p>
                 </div>
                 <div className="flex justify-center space-x-4">

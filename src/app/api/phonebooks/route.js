@@ -3,19 +3,22 @@ import { prisma } from '@/lib/prisma';
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
+
         const page = parseInt(searchParams.get('page') || '1', 10);
-        const limit = parseInt(searchParams.get('limit') || '10', 10);
+        const limit = parseInt(searchParams.get('limit') || '30', 30);
         const keyword = searchParams.get('keyword')?.trim() || '';
-        const sortBy = searchParams.get('sortBy') || 'name';
+        const sortBy = ['name', 'phone'].includes(searchParams.get('sortBy'))
+            ? searchParams.get('sortBy')
+            : 'name';
         const sortMode = searchParams.get('sortMode') === 'desc' ? 'desc' : 'asc';
-        
+
         const where = keyword
             ? {
-                  OR: [
-                      { name: { contains: keyword, mode: 'insensitive' } },
-                      { phone: { contains: keyword, mode: 'insensitive' } },
-                  ],
-              }
+                OR: [
+                    { name: { contains: keyword, mode: 'insensitive' } },
+                    { phone: { contains: keyword, mode: 'insensitive' } },
+                ],
+            }
             : {};
 
         const total = await prisma.phonebook.count({ where });
@@ -27,8 +30,8 @@ export async function GET(request) {
             take: limit,
         });
 
-        const totalPages = Math.ceil(total / limit);
-        
+        const totalPages = Math.max(1, Math.ceil(total / limit));
+
         return Response.json({
             success: true,
             data: phonebooks,
@@ -38,8 +41,8 @@ export async function GET(request) {
                 pages: totalPages,
                 total,
                 hasNextPage: page < totalPages,
-                hasPrevPage: page > 1
-            }
+                hasPrevPage: page > 1,
+            },
         });
     } catch (error) {
         console.error('Error fetching phonebooks:', error);
@@ -49,6 +52,7 @@ export async function GET(request) {
         );
     }
 }
+
 
 export async function POST(request) {
     try {

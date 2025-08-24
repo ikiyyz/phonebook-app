@@ -4,11 +4,11 @@ import { NextResponse } from "next/server";
 function handleError(error) {
   console.error('Error:', error);
   return NextResponse.json(
-    { 
-      success: false, 
+    {
+      success: false,
       message: 'Terjadi kesalahan pada server',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    }, 
+    },
     { status: 500 }
   );
 }
@@ -17,7 +17,6 @@ export async function GET(request, { params }) {
   try {
     const { id } = await params;
 
-    // Validasi ID
     if (!id || isNaN(Number(id))) {
       return NextResponse.json(
         { success: false, message: 'ID kontak tidak valid' },
@@ -45,7 +44,7 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const { id } = await params;
-    
+
     if (!id || isNaN(Number(id))) {
       return NextResponse.json(
         { success: false, message: 'ID kontak tidak valid' },
@@ -79,10 +78,10 @@ export async function PUT(request, { params }) {
     });
 
     return NextResponse.json(
-      { 
-        success: true, 
+      {
+        success: true,
         message: 'Kontak berhasil diperbarui',
-        data: updatedContact 
+        data: updatedContact
       },
       { status: 200 }
     );
@@ -113,15 +112,16 @@ export async function DELETE(request, { params }) {
         { status: 404 }
       );
     }
-    
-    await prisma.phonebook.delete({
+
+    const deletedContact = await prisma.phonebook.delete({
       where: { id: Number(id) }
     });
 
     return NextResponse.json(
-      { 
-        success: true, 
-        message: 'Kontak berhasil dihapus' 
+      {
+        success: true,
+        message: 'Kontak berhasil dihapus',
+        data: deletedContact
       },
       { status: 200 }
     );

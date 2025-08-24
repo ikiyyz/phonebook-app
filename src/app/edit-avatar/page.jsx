@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { toast } from "react-hot-toast";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Upload, Loader2 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
-import { updatePhonebook } from "@/redux/phonebookSlice";
+import { updatePhonebookAsync } from "@/redux/phonebookSlice";
 
 export default function EditAvatarPage() {
     const router = useRouter();
@@ -18,15 +19,31 @@ export default function EditAvatarPage() {
     );
 
     const [file, setFile] = useState(null);
-    const [preview, setPreview] = useState(contact?.avatar || "/avatar.svg");
+    const [preview, setPreview] = useState("/avatar.svg");
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef();
 
     useEffect(() => {
-        if (contact?.avatar) {
-            setPreview(contact.avatar);
+        if (contact) {
+            setPreview(contact.avatar || "/avatar.svg");
         }
-    }, [contact?.avatar]);
+    }, [contact]);
+
+    useEffect(() => {
+        if (!contact && phonebookId) {
+            (async () => {
+                try {
+                    const res = await fetch(`/api/phonebooks/${phonebookId}`);
+                    if (res.ok) {
+                        const json = await res.json();
+                        setPreview(json.data?.avatar || "/avatar.svg"); 
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch contact:", err);
+                }
+            })();
+        }
+    }, [contact, phonebookId]);
 
     const handleFileChange = (e) => {
         const f = e.target.files?.[0];
@@ -61,11 +78,12 @@ export default function EditAvatarPage() {
             });
 
             if (!res.ok) throw new Error("Failed to upload avatar");
-            const data = await res.json(); // { avatar: "url" }
+            const data = await res.json(); 
 
-            dispatch(updatePhonebook({ id: Number(phonebookId), avatar: data.avatar }));
+            dispatch(updatePhonebookAsync({ id: Number(phonebookId), avatar: data.avatar }));
 
-            router.back();
+            toast.success("Avatar updated successfully");
+            router.back(); 
         } catch (err) {
             console.error(err);
             alert(err.message || "Upload failed");
