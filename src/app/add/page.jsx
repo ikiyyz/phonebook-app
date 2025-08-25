@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDispatch } from 'react-redux';
-import { createPhonebook } from '@/redux/phonebookSlice';
+import { createPhonebookAsync } from '@/redux/phonebookSlice';
 import { toast } from 'react-hot-toast';
 
 export default function AddPhonebookPage() {
@@ -30,7 +30,7 @@ export default function AddPhonebookPage() {
 
         setLoading(true);
         try {
-            await dispatch(createPhonebook({ name: name.trim(), phone: phone.trim() })).unwrap();
+            await dispatch(createPhonebookAsync({ name: name.trim(), phone: phone.trim() })).unwrap();
             toast.success('Contact added successfully!');
             router.back();
         } catch (error) {
