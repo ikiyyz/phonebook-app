@@ -10,13 +10,12 @@ const initialState = {
   total: 0,
 };
 
-// ===== Get Phonebooks with Pagination =====
 export const getPhonebooksAsync = createAsyncThunk(
   'phonebook/getPhonebooks',
   async ({ page = 1, keyword = '', sortAsc = true, append = false } = {}) => {
     const params = {
       page,
-      keyword: keyword.trim(), // ✅ sesuai backend
+      keyword: keyword.trim(),
       sortBy: 'name',
       sortMode: sortAsc ? 'asc' : 'desc'
     };
@@ -24,7 +23,7 @@ export const getPhonebooksAsync = createAsyncThunk(
     const res = await read(params);
 
     return {
-      phonebooks: res.data?.data || [], // ✅ ambil dari "data"
+      phonebooks: res.data?.data || [], 
       page: res.data?.pagination?.page || 1,
       pages: res.data?.pagination?.pages || 1,
       total: res.data?.pagination?.total || 0,
@@ -33,7 +32,6 @@ export const getPhonebooksAsync = createAsyncThunk(
   }
 );
 
-// ===== Create Phonebook =====
 export const createPhonebookAsync = createAsyncThunk(
   'phonebook/createPhonebook',
   async (payload) => {
@@ -41,7 +39,7 @@ export const createPhonebookAsync = createAsyncThunk(
     return res.data.data;
   }
 );
-// ===== Update Phonebook =====
+
 export const updatePhonebookAsync = createAsyncThunk(
   'phonebook/updatePhonebook',
   async ({ id, ...payload }) => {
@@ -50,7 +48,6 @@ export const updatePhonebookAsync = createAsyncThunk(
   }
 );
 
-// ===== Delete Phonebook =====
 export const deletePhonebookAsync = createAsyncThunk(
   'phonebook/deletePhonebook',
   async (id) => {
@@ -81,7 +78,7 @@ export const phonebookSlice = createSlice({
         if (append) {
           state.items = [...state.items, ...phonebooks];
         } else {
-          
+
           state.items = phonebooks || [];
         }
 
